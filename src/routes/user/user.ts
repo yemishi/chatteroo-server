@@ -1,7 +1,7 @@
-import express, { Request, Response } from "express";
-import { db } from "src/lib/db";
+import express from "express";
+import { db } from "../../lib/db";
 import { compareSync, hashSync } from "bcrypt";
-import { authenticate, AuthRequest } from "@lib/auth";
+import { authenticate, AuthRequest } from "../../lib/auth";
 
 const router = express.Router();
 
