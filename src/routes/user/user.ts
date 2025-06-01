@@ -24,57 +24,84 @@ router.get("/", async (req, res) => {
     res.status(500).json({ message: "User not found" });
   }
 });
-
 router.post("/", async (req, res) => {
   try {
-    const { username, email, password, picture, bio, isGuest } = await req.body;
+    const { username, email, password, picture, bio, isGuest } = req.body;
 
-    if (isGuest) {
-      const guestUsername = () => {
-        const words1 = [
-          "Bubbly",
-          "Fluffy",
-          "Pudding",
-          "Snuggle",
-          "Peachy",
-          "Tofu",
-          "Marsh",
-          "Choco",
-          "Cloudy",
-          "Twinkle",
-        ];
-        const words2 = ["Bun", "Paws", "Muffin", "Bean", "Sprout", "Puff", "Cuddle", "Whiskers", "Duckie", "MooMoo"];
+    const defaultPfp = "https://upload.wikimedia.org/wikipedia/commons/2/2c/Default_pfp.svg";
+
+    const generateGuestUsername = async (): Promise<string> => {
+      const words1 = [
+        "Bubbly",
+        "Fluffy",
+        "Pudding",
+        "Snuggle",
+        "Peachy",
+        "Tofu",
+        "Marsh",
+        "Choco",
+        "Cloudy",
+        "Twinkle",
+      ];
+      const words2 = ["Bun", "Paws", "Muffin", "Bean", "Sprout", "Puff", "Cuddle", "Whiskers", "Duckie", "MooMoo"];
+
+      let candidate;
+      let isTaken = true;
+      let attempts = 0;
+
+      while (isTaken && attempts < 10) {
         const random1 = words1[Math.floor(Math.random() * words1.length)];
         const random2 = words2[Math.floor(Math.random() * words2.length)];
-        return `${random1}${random2}`;
-      };
-      await db.user.create({
+        candidate = `${random1}${random2}`;
+        isTaken = !!(await db.user.findFirst({ where: { username: candidate } }));
+        attempts++;
+      }
+
+      return candidate!;
+    };
+
+    if (isGuest) {
+      const guestUsername = await generateGuestUsername();
+
+      const newGuest = await db.user.create({
         data: {
-          username: guestUsername(),
-          picture: picture ?? "https://upload.wikimedia.org/wikipedia/commons/2/2c/Default_pfp.svg",
+          username: guestUsername,
+          picture: picture ?? defaultPfp,
+          isGuest: true,
         },
       });
-      res.status(201).json({ message: "User created successfully." });
+
+      res
+        .status(201)
+        .json({ message: "Guest user created successfully.", user: { id: newGuest.id, username: guestUsername } });
       return;
     }
-    const unavailableEmail = await db.user.findFirst({ where: { email } });
-    if (unavailableEmail) {
-      res.status(400).json({ message: "Email is already being used." });
+    if (!email || !username || !password) {
+      res.status(400).json({ message: "Username, email, and password are required." });
       return;
     }
-    const hashedPass = hashSync(password, 10);
+    const existingEmail = await db.user.findFirst({ where: { email } });
+    if (existingEmail) {
+      res.status(400).json({ message: "Email is already in use." });
+      return;
+    }
+
+    const hashedPassword = hashSync(password, 10);
+
     await db.user.create({
       data: {
-        email,
-        password: hashedPass,
         username,
-        picture: picture ?? "https://upload.wikimedia.org/wikipedia/commons/2/2c/Default_pfp.svg",
+        email,
+        password: hashedPassword,
+        picture: picture ?? defaultPfp,
         bio,
       },
     });
+
     res.status(201).json({ message: "User created successfully." });
-  } catch {
-    res.status(500).json({ message: "Failed to create user." });
+  } catch (error) {
+    console.error("User creation failed:", error);
+    res.status(500).json({ message: "Internal server error during user creation." });
   }
 });
 
