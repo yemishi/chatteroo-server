@@ -1,3 +1,4 @@
+import "dotenv/config";
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 import { db } from "./db";
@@ -11,19 +12,20 @@ export interface AuthRequest extends Request {
 
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
+    const token = req.cookies?.jwt || req.headers.authorization?.split(" ")[1];
     if (!token) {
       res.status(401).json({ message: "No token provided" });
       return;
     }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: string };
 
     const user = await db.user.findUnique({
-      where: { id: decoded.userId },
+      where: { id: decoded.id },
       select: {
         id: true,
         email: true,
         isGuest: true,
+        picture: true,
       },
     });
 
