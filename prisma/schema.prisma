@@ -21,8 +21,8 @@ enum ChatType {
 model User {
   id       String    @id @default(auto()) @map("_id") @db.ObjectId
   username String
-  password String?
   picture  String
+  password String?
   email    String?    @unique
   bio      String?
   isGuest  Boolean   @default(false)
