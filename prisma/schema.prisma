@@ -23,7 +23,7 @@ model User {
   username String
   picture  String
   password String?
-  email    String?    @unique
+  email    String?   @unique
   bio      String?
   isGuest  Boolean   @default(false)
   friends  String[]  @db.ObjectId
@@ -42,7 +42,7 @@ model Chat {
   group        Group?    @relation(fields: [groupId], references: [id])
   participants String[]  @db.ObjectId
   users        User      @relation(fields: [participants], references: [id])
-  Message      Message[]
+  messages      Message[]
 }
 
 model Group {
@@ -52,15 +52,11 @@ model Group {
   chats   Chat[]
 }
 
-model Message {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  content   String
+type Message {
+  text      String
   timestamp DateTime  @default(now())
+  senderId  String
   editedAt  DateTime?
-  senderId  String    @db.ObjectId
-  chatId    String    @db.ObjectId
-  chat      Chat      @relation(fields: [chatId], references: [id])
-  user      User      @relation(fields: [senderId], references: [id])
 }
 
 model Request {
