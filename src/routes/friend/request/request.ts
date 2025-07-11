@@ -61,7 +61,7 @@ router.post("/:userId", async (req: AuthRequest, res) => {
           data: { status: "accepted" },
         }),
         db.chat.create({
-          data: { participants: { set: [currentUser.id, userId] } },
+          data: { members: { set: [currentUser.id, userId] } },
         }),
       ]);
 
