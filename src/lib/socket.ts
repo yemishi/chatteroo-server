@@ -27,6 +27,9 @@ io.on("connection", (socket: Socket) => {
   }
 
   io.emit("online-users", Object.keys(onlineUsers));
+  socket.on("getOnlineUsers", () => {
+    socket.emit("online-users", Object.keys(onlineUsers));
+  });
 
   socket.on("subscribe", (roomId: string) => {
     console.log(`${socket.id} subscribed to room ${roomId}`);
@@ -42,17 +45,17 @@ io.on("connection", (socket: Socket) => {
     console.log(`${message.sender} sent message to ${message.room}: ${message.content}`);
     io.to(message.room).emit("message", message);
 
-    await db.chat.update({
-      where: { id: message.room },
-      data: {
-        messages: {
-          push: {
-            senderId: message.senderId,
-            text: message.content,
-          },
+    /*  try {
+      await db.message.create({
+        data: {
+          content: message.content,
+          senderId: message.senderId,
+          chatId: message.room,
         },
-      },
-    });
+      });
+    } catch (err) {
+      console.error("Failed to save message to DB:", err);
+    } */
   });
 
   socket.on("disconnect", () => {
