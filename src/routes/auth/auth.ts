@@ -56,8 +56,8 @@ router.post("/signin", async (req, res) => {
 
 router.post("/signin-guest", async (req, res) => {
   try {
-    const { id } = req.body;
-    const guest = await db.user.findFirst({ where: { id, isGuest: true } });
+    const { guestId } = req.body;
+    const guest = await db.user.findFirst({ where: { guestId } });
     if (!guest) {
       res.status(404).json({ message: "Guest not found." });
       return;
