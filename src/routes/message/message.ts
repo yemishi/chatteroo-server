@@ -10,16 +10,16 @@ router.get("/", async (req: AuthRequest, res) => {
   const chatId = req.query.chatId as string;
   const take = Math.max(Number(req.query.take) || 20, 1);
   const page = Math.max(Number(req.query.page) || 0, 0);
-  
+
   if (!chatId) {
     res.status(400).json({ message: "Chat ID is required" });
     return;
   }
 
   try {
-    const chat = await db.chat.findUnique({ where: { id: chatId }, select: { participants: true } });
+    const chat = await db.chat.findUnique({ where: { id: chatId }, select: { members: true } });
 
-    if (!chat || !chat.participants.includes(req.user!.id)) {
+    if (!chat || !chat.members.includes(req.user!.id)) {
       res.status(403).json({ message: "User is not part of the chat" });
       return;
     }
@@ -51,7 +51,7 @@ router.post("/", async (req: AuthRequest, res) => {
   try {
     const chat = await db.chat.findUnique({ where: { id: chatId } });
 
-    if (!chat || !chat.participants.includes(req.user!.id)) {
+    if (!chat || !chat.members.includes(req.user!.id)) {
       res.status(403).json({ message: "User is not part of the chat" });
       return;
     }
