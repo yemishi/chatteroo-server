@@ -2,8 +2,28 @@ import express from "express";
 import { db } from "../../lib/db";
 import { compareSync, hashSync } from "bcrypt";
 import { authenticate, AuthRequest } from "../../lib/auth";
+import { v4 as uuidv4 } from "uuid";
 
 const router = express.Router();
+
+const generateGuestUsername = async (): Promise<string> => {
+  const words1 = ["Bubbly", "Fluffy", "Pudding", "Snuggle", "Peachy", "Tofu", "Marsh", "Choco", "Cloudy", "Twinkle"];
+  const words2 = ["Bun", "Paws", "Muffin", "Bean", "Sprout", "Puff", "Cuddle", "Whiskers", "Duckie", "MooMoo"];
+
+  let candidate;
+  let isTaken = true;
+  let attempts = 0;
+
+  while (isTaken && attempts < 10) {
+    const random1 = words1[Math.floor(Math.random() * words1.length)];
+    const random2 = words2[Math.floor(Math.random() * words2.length)];
+    candidate = `${random1}${random2}`;
+    isTaken = !!(await db.user.findFirst({ where: { username: candidate } }));
+    attempts++;
+  }
+
+  return candidate!;
+};
 
 router.get("/", async (req, res) => {
   const { userId, email } = req.query as { userId?: string; email?: string };
@@ -24,58 +44,38 @@ router.get("/", async (req, res) => {
     res.status(500).json({ message: "User not found" });
   }
 });
-router.post("/", async (req, res) => {
+
+router.post("/guest", async (_, res) => {
   try {
-    const { username, email, password, picture, bio, isGuest } = req.body;
+    const guestId = uuidv4();
 
     const defaultPfp = "https://upload.wikimedia.org/wikipedia/commons/2/2c/Default_pfp.svg";
 
-    const generateGuestUsername = async (): Promise<string> => {
-      const words1 = [
-        "Bubbly",
-        "Fluffy",
-        "Pudding",
-        "Snuggle",
-        "Peachy",
-        "Tofu",
-        "Marsh",
-        "Choco",
-        "Cloudy",
-        "Twinkle",
-      ];
-      const words2 = ["Bun", "Paws", "Muffin", "Bean", "Sprout", "Puff", "Cuddle", "Whiskers", "Duckie", "MooMoo"];
+    const guestUsername = await generateGuestUsername();
 
-      let candidate;
-      let isTaken = true;
-      let attempts = 0;
+    const newGuest = await db.user.create({
+      data: {
+        username: guestUsername,
+        picture: defaultPfp,
+        guestId,
+      },
+    });
 
-      while (isTaken && attempts < 10) {
-        const random1 = words1[Math.floor(Math.random() * words1.length)];
-        const random2 = words2[Math.floor(Math.random() * words2.length)];
-        candidate = `${random1}${random2}`;
-        isTaken = !!(await db.user.findFirst({ where: { username: candidate } }));
-        attempts++;
-      }
+    res
+      .status(201)
+      .json({ message: "Guest user created successfully.", user: { id: newGuest.id, username: guestUsername } });
+  } catch (error) {
+    console.error("User creation failed:", error);
+    res.status(500).json({ message: "Internal server error during user creation." });
+  }
+});
 
-      return candidate!;
-    };
+router.post("/", async (req, res) => {
+  try {
+    const { username, email, password, picture, bio } = req.body;
 
-    if (isGuest) {
-      const guestUsername = await generateGuestUsername();
+    const defaultPfp = "https://upload.wikimedia.org/wikipedia/commons/2/2c/Default_pfp.svg";
 
-      const newGuest = await db.user.create({
-        data: {
-          username: guestUsername,
-          picture: picture ?? defaultPfp,
-          isGuest: true,
-        },
-      });
-
-      res
-        .status(201)
-        .json({ message: "Guest user created successfully.", user: { id: newGuest.id, username: guestUsername } });
-      return;
-    }
     if (!email || !username || !password) {
       res.status(400).json({ message: "Username, email, and password are required." });
       return;
