@@ -24,7 +24,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       select: {
         id: true,
         email: true,
-        isGuest: true,
+        guestId: true,
         picture: true,
       },
     });
