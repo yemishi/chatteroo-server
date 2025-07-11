@@ -33,15 +33,13 @@ model User {
 }
 
 model Chat {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
-  updatedAt    DateTime  @updatedAt
-  createAt     DateTime  @default(now())
-  chatType     ChatType  @default(dm)
-  groupId      String?   @db.ObjectId
-  group        Group?    @relation(fields: [groupId], references: [id])
-  participants String[]  @db.ObjectId
-  users        User      @relation(fields: [participants], references: [id])
-  messages     Message[]
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  updatedAt DateTime  @updatedAt
+  createAt  DateTime  @default(now())
+  chatType  ChatType  @default(dm)
+  members   String[]  @db.ObjectId
+  users     User      @relation(fields: [members], references: [id])
+  messages  Message[]
 }
 
 model Message {
@@ -52,13 +50,6 @@ model Message {
   chatId    String    @db.ObjectId
   chat      Chat      @relation(fields: [chatId], references: [id])
   editedAt  DateTime?
-}
-
-model Group {
-  id      String  @id @default(auto()) @map("_id") @db.ObjectId
-  picture String
-  bio     String?
-  chats   Chat[]
 }
 
 model Request {
