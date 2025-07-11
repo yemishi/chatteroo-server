@@ -19,17 +19,16 @@ enum ChatType {
 }
 
 model User {
-  id       String    @id @default(auto()) @map("_id") @db.ObjectId
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
   username String
   picture  String
   password String?
-  email    String?   @unique
+  email    String?  @unique
   bio      String?
-  isGuest  Boolean   @default(false)
-  friends  String[]  @db.ObjectId
-  createAt DateTime  @default(now())
-  updateAt DateTime  @updatedAt
-  messages Message[]
+  guestId  String?
+  friends  String[] @db.ObjectId
+  createAt DateTime @default(now())
+  updateAt DateTime @updatedAt
   Chat     Chat[]
 }
 
@@ -42,7 +41,17 @@ model Chat {
   group        Group?    @relation(fields: [groupId], references: [id])
   participants String[]  @db.ObjectId
   users        User      @relation(fields: [participants], references: [id])
-  messages      Message[]
+  messages     Message[]
+}
+
+model Message {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  timestamp DateTime  @default(now())
+  senderId  String    @db.ObjectId
+  chatId    String    @db.ObjectId
+  chat      Chat      @relation(fields: [chatId], references: [id])
+  editedAt  DateTime?
 }
 
 model Group {
@@ -50,13 +59,6 @@ model Group {
   picture String
   bio     String?
   chats   Chat[]
-}
-
-type Message {
-  text      String
-  timestamp DateTime  @default(now())
-  senderId  String
-  editedAt  DateTime?
 }
 
 model Request {
