@@ -26,6 +26,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         email: true,
         guestId: true,
         picture: true,
+        username: true,
       },
     });
 
