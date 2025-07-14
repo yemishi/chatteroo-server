@@ -1,4 +1,4 @@
-import { AuthRequest } from "./../../lib/auth";
+import { AuthRequest } from "../../lib/auth";
 import "dotenv/config";
 
 import jwt from "jsonwebtoken";
@@ -11,15 +11,7 @@ const router = express.Router();
 
 router.get("/", authenticate, async (req: AuthRequest, res) => {
   try {
-    const user = await db.user.findUnique({
-      where: { id: req?.user?.id },
-      select: { picture: true, username: true, id: true },
-    });
-    if (!user) {
-      res.status(404).json({ message: "User not found." });
-      return;
-    }
-    res.status(200).json(user);
+    res.status(200).json({ user: req.user });
   } catch (error) {
     res.status(400).json({ message: "Failed to fetch user info." });
     return;
@@ -44,7 +36,7 @@ router.post("/signin", async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       sameSite: "strict",
-      secure: process.env.NODE_ENV !== "development",
+      secure: false,
     });
     res.status(200).json({ message: "User logged successfully." });
     return;
@@ -68,7 +60,7 @@ router.post("/signin-guest", async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       sameSite: "strict",
-      secure: process.env.NODE_ENV !== "development",
+      secure: false,
     });
     res.status(200).json({ message: "Guest logged successfully." });
     return;
