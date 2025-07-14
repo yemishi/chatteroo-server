@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { compareSync, hashSync } from "bcrypt";
 import { authenticate, AuthRequest } from "../../lib/auth";
 import { v4 as uuidv4 } from "uuid";
+import jwt from "jsonwebtoken";
 
 const router = express.Router();
 
@@ -60,10 +61,14 @@ router.post("/guest", async (_, res) => {
         guestId,
       },
     });
-
-    res
-      .status(201)
-      .json({ message: "Guest user created successfully.", user: { id: newGuest.id, username: guestUsername } });
+    const token = jwt.sign({ id: newGuest.id }, process.env.JWT_SECRET as string, { expiresIn: "7d" });
+    res.cookie("jwt", token, {
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      sameSite: "strict",
+      secure: false,
+    });
+    res.status(201).json({ message: "Guest user created successfully.", guestId: newGuest.guestId });
   } catch (error) {
     console.error("User creation failed:", error);
     res.status(500).json({ message: "Internal server error during user creation." });
@@ -88,7 +93,7 @@ router.post("/", async (req, res) => {
 
     const hashedPassword = hashSync(password, 10);
 
-    await db.user.create({
+    const user = await db.user.create({
       data: {
         username,
         email,
@@ -96,6 +101,14 @@ router.post("/", async (req, res) => {
         picture: picture ?? defaultPfp,
         bio,
       },
+    });
+
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET as string, { expiresIn: "7d" });
+    res.cookie("jwt", token, {
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      sameSite: "strict",
+      secure: false,
     });
 
     res.status(201).json({ message: "User created successfully." });
