@@ -23,7 +23,7 @@ model User {
   username String
   picture  String
   password String?
-  email    String?  @unique
+  email    String?
   bio      String?
   guestId  String?
   friends  String[] @db.ObjectId
