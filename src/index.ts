@@ -13,7 +13,7 @@ router.use("/user", userRouter);
 router.use("/friends", friendRouter);
 router.use("/requests", requestRouter);
 router.use("/chat", chatRouter);
-router.use("/messages", messageRouter);
+router.use("/message", messageRouter);
 router.use("/auth", authRouter);
 
 export default router;
