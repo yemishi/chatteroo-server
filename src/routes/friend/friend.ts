@@ -8,7 +8,7 @@ router.use(authenticate);
 
 router.get("/:userId", async (req: AuthRequest, res) => {
   const { userId } = req.params;
-  const isFriend = req.query.isFriend as string;
+  const { take = 20, page = 0 } = req.query;
   const currentUser = req.user;
 
   if (!currentUser) {
@@ -17,28 +17,18 @@ router.get("/:userId", async (req: AuthRequest, res) => {
   }
 
   try {
-    if (isFriend) {
-      const checkFriend = await db.user.findFirst({
-        where: {
-          id: userId,
-          friends: {
-            has: currentUser.id,
-          },
-        },
-      });
-
-      res.status(200).json({ isFriend: !!checkFriend });
-      return;
-    }
-
-    const userFriends = await db.user.findFirstOrThrow({
+    const user = await db.user.findFirstOrThrow({
       where: { id: userId },
-      select: { friends: true },
+      select: {
+        friends: true,
+      },
     });
+
+    const isFriend = user.friends.includes(currentUser.id);
 
     const friendsData = await db.user.findMany({
       where: {
-        id: { in: userFriends.friends },
+        id: { in: user.friends },
       },
       select: {
         id: true,
@@ -46,9 +36,14 @@ router.get("/:userId", async (req: AuthRequest, res) => {
         picture: true,
         bio: true,
       },
+      skip: Number(page) * Number(take),
+      take: Number(take),
     });
 
-    res.status(200).json({ friends: friendsData });
+    res.status(200).json({
+      isFriend,
+      friends: friendsData,
+    });
     return;
   } catch (err) {
     console.error("Friend GET error:", err);
@@ -59,7 +54,7 @@ router.get("/:userId", async (req: AuthRequest, res) => {
   }
 });
 
-router.post("/:userId", async (req: AuthRequest, res) => {
+router.patch("/:userId", async (req: AuthRequest, res) => {
   const { userId } = req.params;
   const currentUser = req.user;
 
@@ -69,44 +64,39 @@ router.post("/:userId", async (req: AuthRequest, res) => {
   }
 
   try {
-    const { unfriend } = req.body;
+    const targetUser = await db.user.findUnique({
+      where: { id: userId },
+      select: { friends: true },
+    });
 
-    if (unfriend) {
-      const targetUser = await db.user.findUnique({
-        where: { id: userId },
-        select: { friends: true },
-      });
-
-      if (!targetUser) {
-        res.status(404).json({ message: "User not found" });
-        return;
-      }
-
-      const updatedTargetFriends = targetUser.friends.filter((fid) => fid !== currentUser.id);
-
-      const currentUserRecord = await db.user.findUnique({
-        where: { id: currentUser.id },
-        select: { friends: true },
-      });
-
-      const updatedCurrentFriends = currentUserRecord?.friends.filter((fid) => fid !== userId) ?? [];
-
-      await db.$transaction([
-        db.user.update({
-          where: { id: userId },
-          data: { friends: { set: updatedTargetFriends } },
-        }),
-        db.user.update({
-          where: { id: currentUser.id },
-          data: { friends: { set: updatedCurrentFriends } },
-        }),
-      ]);
-
-      res.status(201).json({ message: "User unfriended successfully" });
+    if (!targetUser) {
+      res.status(404).json({ message: "User not found" });
       return;
     }
 
-    res.status(200).json({ message: "No action taken" });
+    const updatedTargetFriends = targetUser.friends.filter((fid) => fid !== currentUser.id);
+
+    const currentUserRecord = await db.user.findUnique({
+      where: { id: currentUser.id },
+      select: { friends: true },
+    });
+
+    const updatedCurrentFriends = currentUserRecord?.friends.filter((fid) => fid !== userId) ?? [];
+
+    await db.$transaction([
+      db.user.update({
+        where: { id: userId },
+        data: { friends: { set: updatedTargetFriends } },
+      }),
+      db.user.update({
+        where: { id: currentUser.id },
+        data: { friends: { set: updatedCurrentFriends } },
+      }),
+    ]);
+
+    res.status(201).json({ message: "User unfriended successfully" });
+    return;
+
     return;
   } catch (err) {
     console.error("Friend POST error:", err);
