@@ -132,7 +132,7 @@ router.delete("/", async (req: AuthRequest, res) => {
       await db.$transaction([
         db.request.deleteMany({
           where: {
-            OR: [{ from: user.id }, { to: user.id }],
+            OR: [{ fromId: user.id }, { toId: user.id }],
           },
         }),
         db.user.delete({
@@ -157,7 +157,7 @@ router.delete("/", async (req: AuthRequest, res) => {
     await db.$transaction([
       db.request.deleteMany({
         where: {
-          OR: [{ from: user.id }, { to: user.id }],
+          OR: [{ fromId: user.id }, { toId: user.id }],
         },
       }),
       db.user.delete({
