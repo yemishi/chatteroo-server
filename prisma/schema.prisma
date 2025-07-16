@@ -7,12 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum RequestStatus {
-  pending
-  accepted
-  rejected
-}
-
 enum ChatType {
   dm
   group
@@ -30,27 +24,34 @@ model User {
   createAt DateTime @default(now())
   updateAt DateTime @updatedAt
   Chat     Chat[]
+
+  sentRequests     Request[] @relation("RequestFrom")
+  receivedRequests Request[] @relation("RequestTo")
 }
 
 model Request {
-  id        String        @id @default(auto()) @map("_id") @db.ObjectId
-  from      String        @db.ObjectId
-  to        String        @db.ObjectId
-  status    RequestStatus @default(pending)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  fromId String @db.ObjectId
+  toId   String @db.ObjectId
 
-  @@index([from, to])
+  from User @relation("RequestFrom", fields: [fromId], references: [id])
+  to   User @relation("RequestTo", fields: [toId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fromId, toId])
 }
 
 model Chat {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  updatedAt DateTime  @updatedAt
-  createAt  DateTime  @default(now())
-  chatType  ChatType  @default(dm)
-  members   String[]  @db.ObjectId
-  users     User      @relation(fields: [members], references: [id])
-  messages  Message[]
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  updatedAt     DateTime  @updatedAt
+  createAt      DateTime  @default(now())
+  chatType      ChatType  @default(dm)
+  members       String[]  @db.ObjectId
+  users         User      @relation(fields: [members], references: [id])
+  lastMessageAt DateTime?
+  messages      Message[]
 }
 
 model Message {
