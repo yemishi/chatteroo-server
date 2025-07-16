@@ -6,33 +6,33 @@ const router = express.Router();
 
 router.use(authenticate);
 router.get("/", async (req: AuthRequest, res) => {
-  const { take = 20, page = 0 } = req.query as {
-    take?: number;
-    page?: number;
-  };
+  const { take = 20, page = 0 } = req.query;
+  const pageNumber = Number(page);
+  const takeNumber = Number(take);
+  const skip = pageNumber * takeNumber;
+
   const user = req.user;
 
   try {
-    if (!user) {
-      res.status(404).json({ message: "User not found" });
-      return;
-    }
-
-    const chats = await db.chat.findMany({
-      where: {
-        members: {
-          has: user.id,
+    const [count, chats] = await db.$transaction([
+      db.chat.count({ where: { members: { has: user?.id } } }),
+      db.chat.findMany({
+        where: {
+          members: {
+            has: user?.id,
+          },
         },
-      },
-      include: {
-        messages: { orderBy: { timestamp: "desc" }, take: 1 },
-        users: { select: { picture: true, username: true, bio: true } },
-      },
-      skip: Number(page) * Number(take),
-      take,
-    });
+        orderBy: { lastMessageAt: "desc" },
+        include: {
+          messages: { orderBy: { timestamp: "desc" }, take: 1 },
+          users: { select: { picture: true, username: true, bio: true } },
+        },
+        skip,
+        take: takeNumber,
+      }),
+    ]);
 
-    res.status(200).json({ chats });
+    res.status(200).json({ chats, hasMore: skip + chats.length < count });
     return;
   } catch (error) {
     console.error("GET /chat error:", error);
