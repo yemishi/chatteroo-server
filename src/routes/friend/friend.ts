@@ -11,6 +11,10 @@ router.get("/:userId", async (req: AuthRequest, res) => {
   const { take = 20, page = 0 } = req.query;
   const currentUser = req.user;
 
+  const pageNumber = Number(page);
+  const takeNumber = Number(take);
+  const skip = pageNumber * takeNumber;
+
   if (!currentUser) {
     res.status(401).json({ message: "Unauthorized" });
     return;
@@ -25,24 +29,28 @@ router.get("/:userId", async (req: AuthRequest, res) => {
     });
 
     const isFriend = user.friends.includes(currentUser.id);
-
-    const friendsData = await db.user.findMany({
-      where: {
-        id: { in: user.friends },
-      },
-      select: {
-        id: true,
-        username: true,
-        picture: true,
-        bio: true,
-      },
-      skip: Number(page) * Number(take),
-      take: Number(take),
-    });
+    const [count, friendsData] = await db.$transaction([
+      db.user.count({ where: { id: { in: user.friends } } }),
+      db.user.findMany({
+        where: {
+          id: { in: user.friends },
+        },
+        select: {
+          id: true,
+          username: true,
+          picture: true,
+          bio: true,
+        },
+        skip,
+        orderBy: { username: "asc" },
+        take: takeNumber,
+      }),
+    ]);
 
     res.status(200).json({
       isFriend,
       friends: friendsData,
+      hasMore: count > skip + friendsData.length,
     });
     return;
   } catch (err) {
@@ -58,11 +66,6 @@ router.patch("/:userId", async (req: AuthRequest, res) => {
   const { userId } = req.params;
   const currentUser = req.user;
 
-  if (!currentUser) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
   try {
     const targetUser = await db.user.findUnique({
       where: { id: userId },
@@ -74,10 +77,10 @@ router.patch("/:userId", async (req: AuthRequest, res) => {
       return;
     }
 
-    const updatedTargetFriends = targetUser.friends.filter((fid) => fid !== currentUser.id);
+    const updatedTargetFriends = targetUser.friends.filter((fid) => fid !== currentUser?.id);
 
     const currentUserRecord = await db.user.findUnique({
-      where: { id: currentUser.id },
+      where: { id: currentUser?.id },
       select: { friends: true },
     });
 
@@ -89,7 +92,7 @@ router.patch("/:userId", async (req: AuthRequest, res) => {
         data: { friends: { set: updatedTargetFriends } },
       }),
       db.user.update({
-        where: { id: currentUser.id },
+        where: { id: currentUser?.id },
         data: { friends: { set: updatedCurrentFriends } },
       }),
     ]);
