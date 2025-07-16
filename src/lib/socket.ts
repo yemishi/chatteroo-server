@@ -45,7 +45,7 @@ io.on("connection", (socket: Socket) => {
     console.log(`${message.sender} sent message to ${message.room}: ${message.content}`);
     io.to(message.room).emit("message", message);
 
-    /*  try {
+    try {
       await db.message.create({
         data: {
           content: message.content,
@@ -54,12 +54,12 @@ io.on("connection", (socket: Socket) => {
         },
       });
       await db.chat.update({
-  where: { id: message.room },
-  data: { lastMessageAt: new Date() },
-});
+        where: { id: message.room },
+        data: { lastMessageAt: new Date() },
+      });
     } catch (err) {
       console.error("Failed to save message to DB:", err);
-    } */
+    }
   });
 
   socket.on("disconnect", () => {
