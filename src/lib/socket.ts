@@ -53,6 +53,10 @@ io.on("connection", (socket: Socket) => {
           chatId: message.room,
         },
       });
+      await db.chat.update({
+  where: { id: message.room },
+  data: { lastMessageAt: new Date() },
+});
     } catch (err) {
       console.error("Failed to save message to DB:", err);
     } */
