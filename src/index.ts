@@ -6,14 +6,16 @@ import requestRouter from "./routes/friend/request/request";
 import chatRouter from "./routes/chat/chat";
 import messageRouter from "./routes/message/message";
 import authRouter from "./routes/auth/auth";
+import searchRouter from "./routes/search/search";
 
 const router = express.Router();
 
 router.use("/user", userRouter);
 router.use("/friends", friendRouter);
-router.use("/requests", requestRouter);
+router.use("/request", requestRouter);
 router.use("/chat", chatRouter);
 router.use("/message", messageRouter);
 router.use("/auth", authRouter);
+router.use("/search", searchRouter);
 
 export default router;
