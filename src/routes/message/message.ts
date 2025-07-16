@@ -8,10 +8,10 @@ router.use(authenticate);
 
 router.get("/:chatId", async (req: AuthRequest, res) => {
   const { chatId } = req.params;
-  const { take = 20, page = 0 } = req.query as {
-    take?: number;
-    page?: number;
-  };
+  const { take = 20, page = 0 } = req.query;
+  const pageNumber = Number(page);
+  const takeNumber = Number(take);
+  const skip = pageNumber * takeNumber;
 
   if (!chatId) {
     res.status(400).json({ message: "Chat ID is required" });
@@ -25,15 +25,15 @@ router.get("/:chatId", async (req: AuthRequest, res) => {
       res.status(403).json({ message: "User is not part of the chat" });
       return;
     }
-    const skip = Number(page) * Number(take);
+    const count = await db.message.count({ where: { chatId } });
     const messages = await db.message.findMany({
       where: { chatId },
       orderBy: { timestamp: "desc" },
-      take,
+      take: takeNumber,
       skip,
     });
 
-    res.status(200).json({ messages });
+    res.status(200).json({ messages, hasMore: count > skip + messages.length });
     return;
   } catch (error) {
     console.error("GET /messages error:", error);
