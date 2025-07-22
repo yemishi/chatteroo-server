@@ -7,11 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum ChatType {
-  dm
-  group
-}
-
 model User {
   id       String   @id @default(auto()) @map("_id") @db.ObjectId
   username String
@@ -23,7 +18,6 @@ model User {
   friends  String[] @db.ObjectId
   createAt DateTime @default(now())
   updateAt DateTime @updatedAt
-  Chat     Chat[]
 
   sentRequests     Request[] @relation("RequestFrom")
   receivedRequests Request[] @relation("RequestTo")
@@ -47,11 +41,11 @@ model Chat {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
   updatedAt     DateTime  @updatedAt
   createAt      DateTime  @default(now())
-  chatType      ChatType  @default(dm)
+  isGroup       Boolean   @default(false)
   members       String[]  @db.ObjectId
-  users         User      @relation(fields: [members], references: [id])
   lastMessageAt DateTime?
-  messages      Message[]
+
+  messages Message[]
 }
 
 model Message {
