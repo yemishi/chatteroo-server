@@ -6,33 +6,27 @@ const router = express.Router();
 
 router.use(authenticate);
 router.get("/", async (req: AuthRequest, res) => {
-  const { take = 20, page = 0 } = req.query;
-  const pageNumber = Number(page);
-  const takeNumber = Number(take);
-  const skip = pageNumber * takeNumber;
-
   const user = req.user;
 
   try {
-    const [count, chats] = await db.$transaction([
-      db.chat.count({ where: { members: { has: user?.id } } }),
-      db.chat.findMany({
-        where: {
-          members: {
-            has: user?.id,
-          },
-        },
-        orderBy: { lastMessageAt: "desc" },
-        include: {
-          messages: { orderBy: { timestamp: "desc" }, take: 1 },
-          users: { select: { picture: true, username: true, bio: true } },
-        },
-        skip,
-        take: takeNumber,
-      }),
-    ]);
+    const chats = await db.chat.findMany({
+      where: { members: { has: user?.id } },
+      orderBy: { lastMessageAt: "desc" },
+      include: { messages: { orderBy: { timestamp: "desc" }, take: 1 } },
+    });
 
-    res.status(200).json({ chats, hasMore: skip + chats.length < count });
+    const usersId = Array.from(new Set(chats.flatMap((c) => c.members.filter((id) => id !== user?.id))));
+
+    const users = await db.user.findMany({
+      where: { id: { in: usersId } },
+      select: { id: true, username: true, picture: true },
+    });
+    const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
+    const data = chats.map((c) => {
+      return { ...c, members: c.members.filter((id) => id !== user?.id).map((id) => userMap[id]) };
+    });
+
+    res.status(200).json(data);
     return;
   } catch (error) {
     console.error("GET /chat error:", error);
@@ -50,7 +44,6 @@ router.get("/:chatId", async (req, res) => {
     }
     const chat = await db.chat.findUnique({
       where: { id: chatId as string },
-      include: { users: { select: { picture: true, username: true, bio: true } } },
     });
 
     res.status(200).json({ chat });
