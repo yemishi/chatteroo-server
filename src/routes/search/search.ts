@@ -19,7 +19,6 @@ router.get("/user", async (req: AuthRequest, res) => {
       include: { receivedRequests: true, sentRequests: true },
       where: { AND: [{ username: { contains: query, mode: "insensitive" } }, { id: { not: req.user?.id } }] },
     });
-    console.log(users);
     res.status(200).json({ users, hasMore: count > skip + users.length });
     return;
   } catch (error) {
