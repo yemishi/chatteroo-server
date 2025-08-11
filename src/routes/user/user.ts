@@ -18,7 +18,7 @@ const generateGuestUsername = async (): Promise<string> => {
   while (isTaken && attempts < 10) {
     const random1 = words1[Math.floor(Math.random() * words1.length)];
     const random2 = words2[Math.floor(Math.random() * words2.length)];
-    candidate = `${random1}${random2}`;
+    candidate = `${random1} ${random2}`;
     isTaken = !!(await db.user.findFirst({ where: { username: candidate } }));
     attempts++;
   }
@@ -36,7 +36,7 @@ router.get("/", async (req, res) => {
       return;
     }
 
-    const { password, id, ...user } = await db.user.findFirstOrThrow({
+    const { password, ...user } = await db.user.findFirstOrThrow({
       where: { id: userId },
     });
 
@@ -68,7 +68,8 @@ router.post("/guest", async (_, res) => {
       sameSite: "strict",
       secure: false,
     });
-    res.status(201).json({ message: "Guest user created successfully.", guestId: newGuest.guestId });
+    const { password, bio, createAt, friends, updateAt, ...user } = newGuest;
+    res.status(201).json({ user, message: "Guest user created successfully.", guestId: newGuest.guestId });
   } catch (error) {
     console.error("User creation failed:", error);
     res.status(500).json({ message: "Internal server error during user creation." });
@@ -110,8 +111,8 @@ router.post("/", async (req, res) => {
       sameSite: "strict",
       secure: false,
     });
-
-    res.status(201).json({ message: "User created successfully." });
+    const { password: __, bio: _, createAt, friends, updateAt, ...userData } = user;
+    res.status(201).json({ user: userData, message: "User created successfully." });
   } catch (error) {
     console.error("User creation failed:", error);
     res.status(500).json({ message: "Internal server error during user creation." });
