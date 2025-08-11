@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.use(authenticate);
 
-router.get("/sends/:userId", async (req: AuthRequest, res) => {
+router.get("/sent/:userId", async (req: AuthRequest, res) => {
   const id = req.query.userId ? req.query.userId : req.user?.id;
   const take = Number(req.query.take ?? 20);
   const page = Number(req.query.page ?? 0);
@@ -26,7 +26,6 @@ router.get("/receives", async (req: AuthRequest, res) => {
   const id = req.query.userId ? req.query.userId : req.user?.id;
   const take = Number(req.query.take ?? 20);
   const page = Number(req.query.page ?? 0);
-
   await handleRequestList({
     userId: id as string,
     relationField: "toId",
