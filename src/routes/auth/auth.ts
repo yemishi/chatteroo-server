@@ -38,7 +38,11 @@ router.post("/signin", async (req, res) => {
       sameSite: "strict",
       secure: false,
     });
-    res.status(200).json({ message: "User logged successfully." });
+    const { bio, createAt, friends, password: _, updateAt, ...userData } = user;
+    res.status(200).json({
+      user: userData,
+      message: "User logged successfully.",
+    });
     return;
   } catch (error) {
     res.status(400).json({ message: "Something went wrong, please try again." });
@@ -62,7 +66,11 @@ router.post("/signin-guest", async (req, res) => {
       sameSite: "strict",
       secure: false,
     });
-    res.status(200).json({ message: "Guest logged successfully." });
+    const { bio, createAt, friends, password, updateAt, ...user } = guest;
+    res.status(200).json({
+      user,
+      message: "Guest logged successfully.",
+    });
     return;
   } catch (error) {
     res.status(400).json({ message: "Something went wrong, please try again." });
