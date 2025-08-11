@@ -19,9 +19,8 @@ export function getUserSocketId(userId: string): string | undefined {
 }
 
 io.on("connection", (socket: Socket) => {
-  console.log("✅ User connected:", socket.id);
-
   const userId = socket.handshake.query.userId as string | undefined;
+  console.log("✅ User connected:", userId, "AAAA");
 
   if (userId) {
     onlineUsers[userId] = socket.id;
@@ -49,18 +48,16 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("send-message", async ({ message, membersId }) => {
-    io.to(message.room).emit("message", message);
-
-    for (const userId of membersId) {
+    const timestamp = new Date();
+    io.to(message.room).emit("message", { ...message, timestamp });
+    for (const userId of [...membersId, socket.handshake.query.userId]) {
       const socketId = onlineUsers[userId];
-      if (socketId && socketId !== socket.id) {
+      if (socketId) {
         io.to(socketId).emit("chat-updated", {
           chatId: message.room,
-          lastMessage: {
-            content: message.content,
-            senderId: message.senderId,
-            timestamp: new Date().toISOString(),
-          },
+          content: message.content,
+          senderId: message.senderId,
+          timestamp,
         });
       }
     }
@@ -75,7 +72,7 @@ io.on("connection", (socket: Socket) => {
       });
       await db.chat.update({
         where: { id: message.room },
-        data: { lastMessageAt: new Date() },
+        data: { lastMessageAt: timestamp },
       });
     } catch (err) {
       console.error("Failed to save message to DB:", err);
