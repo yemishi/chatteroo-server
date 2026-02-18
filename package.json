@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon --watch \"./**/*.ts\" --exec ts-node src/app.ts",
+    "dev": "nodemon --signal SIGTERM --watch \"./**/*.ts\" --exec ts-node src/app.ts",
     "start": "node dist/app.js",
     "build": "tsc"
   },
@@ -15,11 +15,13 @@
   "dependencies": {
     "@prisma/client": "^6.11.1",
     "bcrypt": "^6.0.0",
+    "cloudinary": "^2.7.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
     "socket.io": "^4.8.1",
     "uuid": "^11.1.0"
   },
@@ -29,6 +31,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.9",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22.15.21",
     "nodemon": "^3.1.10",
     "prisma": "^6.11.1",
