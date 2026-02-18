@@ -41,7 +41,17 @@ router.post("/:userId", async (req: AuthRequest, res) => {
   const currentUser = req.user;
 
   try {
-    await db.request.create({ data: { fromId: currentUser?.id!, toId: userId } });
+    const request = await db.request.create({ data: { fromId: currentUser?.id!, toId: userId } });
+    await db.notification.create({
+      data: {
+        title: `${currentUser?.username}`,
+        content: "sent you a friend request.",
+        type: "FRIEND_REQUEST",
+        userId,
+        senderId: currentUser?.id!,
+        requestId: request.id,
+      },
+    });
     res.status(201).json({ message: "Friend request sent successfully." });
     return;
   } catch (err) {
@@ -69,8 +79,11 @@ router.delete("/:requestId", async (req: AuthRequest, res) => {
       res.status(404).json({ message: "Request not found or unauthorized." });
       return;
     }
+    await Promise.all([
+      db.notification.updateMany({ where: { requestId }, data: { read: true, requestStatus: "REJECTED" } }),
+      db.request.delete({ where: { id: requestId } }),
+    ]);
 
-    await db.request.delete({ where: { id: requestId } });
     res.status(200).json({ message: "Friend request declined successfully." });
   } catch (err) {
     console.error("DELETE /requests/:requestId error:", err);
@@ -100,11 +113,34 @@ router.patch("/:requestId/accept", async (req: AuthRequest, res) => {
     const friendId = request.fromId;
     const existingChat = await db.chat.findFirst({
       where: {
-        members: {
-          hasEvery: [currentUser.id, friendId],
-        },
+        AND: [{ members: { some: { id: friendId } } }, { members: { some: { id: currentUser.id } } }],
       },
     });
+
+    const chatOps = existingChat
+      ? [
+          db.chat.update({
+            where: { id: existingChat.id },
+            data: {
+              members: {
+                set: existingChat.members.map((m) =>
+                  [friendId, currentUser.id].includes(m.id) ? { ...m, isRemoved: false } : m
+                ),
+              },
+            },
+          }),
+        ]
+      : [
+          db.chat.create({
+            data: {
+              members: [
+                { id: currentUser.id, isRemoved: false },
+                { id: friendId, isRemoved: false },
+              ],
+              isGroup: false,
+            },
+          }),
+        ];
 
     await db.$transaction([
       db.user.update({
@@ -115,16 +151,11 @@ router.patch("/:requestId/accept", async (req: AuthRequest, res) => {
         where: { id: friendId },
         data: { friends: { push: currentUser.id } },
       }),
+      db.notification.updateMany({ where: { requestId }, data: { read: true, requestStatus: "ACCEPTED" } }),
       db.request.delete({
         where: { id: requestId },
       }),
-      ...(existingChat
-        ? []
-        : [
-            db.chat.create({
-              data: { members: { set: [currentUser.id, friendId] } },
-            }),
-          ]),
+      ...chatOps,
     ]);
 
     res.status(200).json({ message: "Friend request accepted successfully." });
@@ -159,7 +190,7 @@ async function handleRequestList({
         take,
         include: {
           [includeField]: {
-            select: { username: true, picture: true, guestId: true },
+            select: { username: true, picture: true, guestCode: true },
           },
         },
       }),
