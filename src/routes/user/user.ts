@@ -1,29 +1,51 @@
 import express from "express";
 import { db } from "../../lib/db";
-import { compareSync, hashSync } from "bcrypt";
-import { authenticate, AuthRequest } from "../../lib/auth";
+import { hashSync } from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
 
 const router = express.Router();
 
-const generateGuestUsername = async (): Promise<string> => {
+const generateGuestTag = async (username: string) => {
+  let tag = "";
+  let isAlreadyTaken = true;
+
+  while (isAlreadyTaken) {
+    const randomDigits = Math.floor(1000 + Math.random() * 9000).toString();
+    tag = `${username}#${randomDigits}`;
+
+    isAlreadyTaken = !!(await db.user.findFirst({ where: { tag } }));
+  }
+
+  return tag;
+};
+
+const generateGuestInfo = async (): Promise<{ username: string; tag: string }> => {
   const words1 = ["Bubbly", "Fluffy", "Pudding", "Snuggle", "Peachy", "Tofu", "Marsh", "Choco", "Cloudy", "Twinkle"];
   const words2 = ["Bun", "Paws", "Muffin", "Bean", "Sprout", "Puff", "Cuddle", "Whiskers", "Duckie", "MooMoo"];
 
-  let candidate;
+  let candidate = "";
   let isTaken = true;
   let attempts = 0;
+  let tag = "";
 
   while (isTaken && attempts < 10) {
     const random1 = words1[Math.floor(Math.random() * words1.length)];
     const random2 = words2[Math.floor(Math.random() * words2.length)];
     candidate = `${random1} ${random2}`;
+
     isTaken = !!(await db.user.findFirst({ where: { username: candidate } }));
+
+    if (!isTaken) {
+      tag = await generateGuestTag(candidate);
+    }
+
     attempts++;
   }
 
-  return candidate!;
+  if (!candidate || !tag) throw new Error("Failed to generate unique guest username or tag");
+
+  return { username: candidate, tag };
 };
 
 router.get("/", async (req, res) => {
@@ -46,19 +68,40 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.post("/guest", async (_, res) => {
+router.get("/guest", async (_, res) => {
   try {
-    const guestId = uuidv4();
+    const generateGuestCode = () => {
+      const raw = uuidv4().replace(/-/g, "").slice(0, 16).toUpperCase();
+      return raw.match(/.{1,4}/g)?.join("-");
+    };
 
+    const guestCode = generateGuestCode();
     const defaultPfp = "https://upload.wikimedia.org/wikipedia/commons/2/2c/Default_pfp.svg";
+    const { tag, username } = await generateGuestInfo();
 
-    const guestUsername = await generateGuestUsername();
+    const user = {
+      username,
+      picture: defaultPfp,
+      guestCode,
+      tag,
+    };
+    res.status(200).json({ user, message: "Guest user generated successfully." });
+  } catch (error) {
+    console.error("Guest user generation failed:", error);
+    res.status(500).json({ message: "Internal server error during user creation." });
+  }
+});
+
+router.post("/guest", async (req, res) => {
+  try {
+    const { username, picture, guestCode, tag } = req.body;
 
     const newGuest = await db.user.create({
       data: {
-        username: guestUsername,
-        picture: defaultPfp,
-        guestId,
+        username,
+        picture,
+        guestCode,
+        tag,
       },
     });
     const token = jwt.sign({ id: newGuest.id }, process.env.JWT_SECRET as string, { expiresIn: "7d" });
@@ -69,7 +112,7 @@ router.post("/guest", async (_, res) => {
       secure: false,
     });
     const { password, bio, createAt, friends, updateAt, ...user } = newGuest;
-    res.status(201).json({ user, message: "Guest user created successfully.", guestId: newGuest.guestId });
+    res.status(201).json({ user, message: "Guest user created successfully." });
   } catch (error) {
     console.error("User creation failed:", error);
     res.status(500).json({ message: "Internal server error during user creation." });
@@ -78,20 +121,26 @@ router.post("/guest", async (_, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const { username, email, password, picture, bio } = req.body;
-
+    const { username, email, password, picture, bio, tag } = req.body;
     const defaultPfp = "https://upload.wikimedia.org/wikipedia/commons/2/2c/Default_pfp.svg";
 
     if (!email || !username || !password) {
       res.status(400).json({ message: "Username, email, and password are required." });
       return;
     }
+    const tagLower = tag.toLowerCase();
     const existingEmail = await db.user.findFirst({ where: { email } });
+    const existingTag = await db.user.findFirst({ where: { tag: tagLower } });
+
     if (existingEmail) {
       res.status(400).json({ message: "Email is already in use." });
       return;
     }
 
+    if (existingTag) {
+      res.status(400).json({ message: "Tag is already in use." });
+      return;
+    }
     const hashedPassword = hashSync(password, 10);
 
     const user = await db.user.create({
@@ -101,6 +150,7 @@ router.post("/", async (req, res) => {
         password: hashedPassword,
         picture: picture ?? defaultPfp,
         bio,
+        tag: tagLower,
       },
     });
 
@@ -116,62 +166,6 @@ router.post("/", async (req, res) => {
   } catch (error) {
     console.error("User creation failed:", error);
     res.status(500).json({ message: "Internal server error during user creation." });
-  }
-});
-
-router.use(authenticate);
-router.delete("/", async (req: AuthRequest, res) => {
-  try {
-    const user = req.user;
-    if (!user) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
-    }
-    const { password } = req.body;
-
-    if (user.isGuest) {
-      await db.$transaction([
-        db.request.deleteMany({
-          where: {
-            OR: [{ fromId: user.id }, { toId: user.id }],
-          },
-        }),
-        db.user.delete({
-          where: { id: user.id },
-        }),
-      ]);
-
-      res.status(200).json({ message: "Guest user deleted successfully." });
-      return;
-    }
-
-    const dbUser = await db.user.findFirstOrThrow({
-      where: { id: user.id },
-    });
-
-    const isPasswordCorrect = compareSync(password, dbUser.password!);
-    if (!isPasswordCorrect) {
-      res.status(404).json({ message: "User not found or password incorrect." });
-      return;
-    }
-
-    await db.$transaction([
-      db.request.deleteMany({
-        where: {
-          OR: [{ fromId: user.id }, { toId: user.id }],
-        },
-      }),
-      db.user.delete({
-        where: { id: user.id },
-      }),
-    ]);
-
-    res.status(200).json({ message: "User deleted successfully." });
-    return;
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to delete user data." });
-    return;
   }
 });
 
