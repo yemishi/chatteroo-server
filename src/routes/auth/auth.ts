@@ -8,7 +8,7 @@ import { db } from "../../lib/db";
 import { authenticate } from "../../lib/auth";
 
 const router = express.Router();
-
+const isProduction = process.env.NODE_ENV === "production";
 router.get("/", authenticate, async (req: AuthRequest, res) => {
   try {
     res.status(200).json({ user: req.user });
@@ -50,7 +50,7 @@ router.post("/signin", async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       sameSite: "strict",
-      secure: false,
+        secure: isProduction,
     });
     const { createAt, friends, password: _, updateAt, ...userData } = user;
     res.status(200).json({
@@ -80,7 +80,7 @@ router.post("/signin-guest", async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       sameSite: "strict",
-      secure: false,
+        secure: isProduction,
     });
     const { createAt, friends, password, updateAt, ...user } = guest;
     res.status(200).json({
