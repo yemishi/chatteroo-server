@@ -6,7 +6,10 @@ import { db } from "./db";
 export interface AuthRequest extends Request {
   user?: {
     id: string;
-    isGuest?: boolean;
+    picture: string;
+    username: string;
+    guestCode?: string | null;
+    bio?: string | null;
   };
 }
 
@@ -18,15 +21,16 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       return;
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: string };
-
     const user = await db.user.findUnique({
       where: { id: decoded.id },
       select: {
         id: true,
-        email: true,
-        guestId: true,
-        picture: true,
+        guestCode: true,
         username: true,
+        bio: true,
+        tag: true,
+        email: true,
+        picture: true,
       },
     });
 
