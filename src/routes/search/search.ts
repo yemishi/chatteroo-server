@@ -34,7 +34,12 @@ router.get("/user", async (req: AuthRequest, res) => {
     const usersData = await Promise.all(
       users.map(async (u) => {
         const chat = await db.chat.findFirst({
-          where: { members: { hasEvery: [u.id, currUserId] } },
+          where: {
+            AND: [
+              { members: { some: { id: u.id, isRemoved: false } } },
+              { members: { some: { id: currUserId, isRemoved: false } } },
+            ],
+          },
         });
         return {
           id: u.id,
@@ -48,7 +53,9 @@ router.get("/user", async (req: AuthRequest, res) => {
     );
     const usersId = Array.from(
       new Set(
-        usersData.filter((d) => d.chat !== null).flatMap((d) => d.chat!.members.filter((id) => id !== currUserId))
+        usersData
+          .filter((d) => d.chat !== null)
+          .flatMap((d) => d.chat!.members.filter((u) => u.id !== currUserId).map((e) => e.id))
       )
     );
     if (!usersId.length) {
@@ -67,7 +74,7 @@ router.get("/user", async (req: AuthRequest, res) => {
       const chat = c.chat
         ? {
             ...c.chat,
-            members: c.chat?.members.filter((id) => id !== currUserId).map((id) => userMap[id]),
+            members: c.chat?.members.filter((u) => u.id !== currUserId).map((u) => userMap[u.id]),
           }
         : null;
       return { ...c, chat };
