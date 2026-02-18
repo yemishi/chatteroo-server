@@ -21,7 +21,7 @@ router.get("/:chatId", async (req: AuthRequest, res) => {
   try {
     const chat = await db.chat.findUnique({ where: { id: chatId }, select: { members: true } });
 
-    if (!chat || !chat.members.includes(req.user!.id)) {
+    if (!chat || !chat.members.some((u) => u.id === req.user?.id)) {
       res.status(403).json({ message: "User is not part of the chat" });
       return;
     }
@@ -53,7 +53,7 @@ router.post("/", async (req: AuthRequest, res) => {
   try {
     const chat = await db.chat.findUnique({ where: { id: chatId } });
 
-    if (!chat || !chat.members.includes(req.user!.id)) {
+    if (!chat || !chat.members.some((u) => u.id == req.user?.id)) {
       res.status(403).json({ message: "User is not part of the chat" });
       return;
     }
@@ -71,45 +71,6 @@ router.post("/", async (req: AuthRequest, res) => {
   } catch (error) {
     console.error("POST /messages error:", error);
     res.status(500).json({ message: "There was a problem sending the message" });
-    return;
-  }
-});
-
-router.patch("/", async (req: AuthRequest, res) => {
-  const messageId = req.query.messageId as string;
-  const { content } = req.body;
-
-  if (!messageId || !content) {
-    res.status(400).json({ message: "Message ID and content are required" });
-    return;
-  }
-
-  try {
-    const message = await db.message.findUnique({ where: { id: messageId } });
-
-    if (!message) {
-      res.status(404).json({ message: "Message not found" });
-      return;
-    }
-
-    if (message.senderId !== req.user!.id) {
-      res.status(403).json({ message: "You are not authorized to update this message" });
-      return;
-    }
-
-    const updatedMessage = await db.message.update({
-      where: { id: messageId },
-      data: {
-        content,
-        editedAt: new Date(),
-      },
-    });
-
-    res.status(200).json({ message: "Message updated successfully", updatedMessage });
-    return;
-  } catch (error) {
-    console.error("PATCH /messages error:", error);
-    res.status(500).json({ message: "There was a problem updating the message" });
     return;
   }
 });
