@@ -20,25 +20,39 @@ router.get("/", authenticate, async (req: AuthRequest, res) => {
 
 router.post("/signin", async (req, res) => {
   try {
-    const { password, email } = req.body;
-    const user = await db.user.findFirst({ where: { email } });
+    const { password, name } = req.body;
+
+    const user = await db.user.findFirst({
+      where: {
+        OR: [
+          {
+            username: name,
+          },
+          { email: name },
+        ],
+      },
+    });
     if (!user) {
       res.status(404).json({ message: "User not found." });
       return;
     }
-    const isCorrectPass = compareSync(user.password as string, password);
+
+    const isCorrectPass = compareSync(password, user.password!);
+
     if (!isCorrectPass) {
-      res.status(401).json({ message: "Invalid credentials." });
+      res.status(401).json({ message: "User not found." });
       return;
     }
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET as string, { expiresIn: "7d" });
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET as string, {
+      expiresIn: "7d",
+    });
     res.cookie("jwt", token, {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       sameSite: "strict",
       secure: false,
     });
-    const { bio, createAt, friends, password: _, updateAt, ...userData } = user;
+    const { createAt, friends, password: _, updateAt, ...userData } = user;
     res.status(200).json({
       user: userData,
       message: "User logged successfully.",
@@ -52,21 +66,23 @@ router.post("/signin", async (req, res) => {
 
 router.post("/signin-guest", async (req, res) => {
   try {
-    const { guestId } = req.body;
-    const guest = await db.user.findFirst({ where: { guestId } });
+    const { guestCode } = req.body;
+    const guest = await db.user.findFirst({ where: { guestCode } });
     if (!guest) {
-      res.status(404).json({ message: "Guest not found." });
+      res.status(404).json({ message: "Invalid Guest Code." });
       return;
     }
 
-    const token = jwt.sign({ id: guest.id, isGuest: true }, process.env.JWT_SECRET as string, { expiresIn: "7d" });
+    const token = jwt.sign({ id: guest.id }, process.env.JWT_SECRET as string, {
+      expiresIn: "7d",
+    });
     res.cookie("jwt", token, {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       sameSite: "strict",
       secure: false,
     });
-    const { bio, createAt, friends, password, updateAt, ...user } = guest;
+    const { createAt, friends, password, updateAt, ...user } = guest;
     res.status(200).json({
       user,
       message: "Guest logged successfully.",
