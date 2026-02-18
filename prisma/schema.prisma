@@ -8,19 +8,21 @@ datasource db {
 }
 
 model User {
-  id       String   @id @default(auto()) @map("_id") @db.ObjectId
-  username String
-  picture  String
-  password String?
-  email    String?
-  bio      String?
-  guestId  String?
-  friends  String[] @db.ObjectId
-  createAt DateTime @default(now())
-  updateAt DateTime @updatedAt
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  username  String
+  picture   String
+  tag       String   @unique
+  password  String?
+  email     String?  @unique
+  bio       String?
+  guestCode String?
+  friends   String[] @db.ObjectId
+  createAt  DateTime @default(now())
+  updateAt  DateTime @updatedAt
 
-  sentRequests     Request[] @relation("RequestFrom")
-  receivedRequests Request[] @relation("RequestTo")
+  sentRequests     Request[]      @relation("RequestFrom")
+  receivedRequests Request[]      @relation("RequestTo")
+  Notification     Notification[]
 }
 
 model Request {
@@ -31,29 +33,68 @@ model Request {
   from User @relation("RequestFrom", fields: [fromId], references: [id])
   to   User @relation("RequestTo", fields: [toId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  Notification Notification[]
 
   @@index([fromId, toId])
 }
 
 model Chat {
-  id            String    @id @default(auto()) @map("_id") @db.ObjectId
-  updatedAt     DateTime  @updatedAt
-  createAt      DateTime  @default(now())
-  isGroup       Boolean   @default(false)
-  members       String[]  @db.ObjectId
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  updatedAt     DateTime      @updatedAt
+  createAt      DateTime      @default(now())
+  isGroup       Boolean       @default(false)
+  members       ChatMembers[]
   lastMessageAt DateTime?
 
   messages Message[]
 }
 
+type ChatMembers {
+  id                String    @db.ObjectId
+  isRemoved         Boolean   @default(false)
+  lastMessageReadAt DateTime?
+}
+
 model Message {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  content   String
-  timestamp DateTime  @default(now())
-  senderId  String    @db.ObjectId
-  chatId    String    @db.ObjectId
-  chat      Chat      @relation(fields: [chatId], references: [id])
+  id        String         @id @default(auto()) @map("_id") @db.ObjectId
+  content   MessageContent
+  timestamp DateTime       @default(now())
+  senderId  String         @db.ObjectId
+  chatId    String         @db.ObjectId
+  chat      Chat           @relation(fields: [chatId], references: [id])
   editedAt  DateTime?
+}
+
+enum NotificationType {
+  SYSTEM
+  FRIEND_REQUEST
+}
+
+enum NotificationStatus {
+  ACCEPTED
+  REJECTED
+}
+
+type MessageContent {
+  text String?
+  imgs String[]
+}
+
+model Notification {
+  id            String              @id @default(auto()) @map("_id") @db.ObjectId
+  senderId      String?             @db.ObjectId
+  userId        String              @db.ObjectId
+  requestId     String?             @db.ObjectId
+  type          NotificationType
+  title         String
+  requestStatus NotificationStatus?
+  content       String
+  read          Boolean             @default(false)
+  createAt      DateTime            @default(now())
+  updateAt      DateTime            @updatedAt
+
+  sender  User?    @relation(fields: [senderId], references: [id])
+  request Request? @relation(fields: [requestId], references: [id])
 }
