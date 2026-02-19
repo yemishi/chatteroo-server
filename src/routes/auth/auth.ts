@@ -49,8 +49,8 @@ router.post("/signin", async (req, res) => {
     res.cookie("jwt", token, {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
-      sameSite: "strict",
-        secure: isProduction,
+      sameSite: "none",
+      secure: true,
     });
     const { createAt, friends, password: _, updateAt, ...userData } = user;
     res.status(200).json({
@@ -79,8 +79,8 @@ router.post("/signin-guest", async (req, res) => {
     res.cookie("jwt", token, {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
-      sameSite: "strict",
-        secure: isProduction,
+      sameSite: "none",
+      secure: true,
     });
     const { createAt, friends, password, updateAt, ...user } = guest;
     res.status(200).json({
